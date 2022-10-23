@@ -1,0 +1,6 @@
+.DS_Store
+out/
+.vs/
+.vscode/
+stb_image.h
+stb_image_write.h
