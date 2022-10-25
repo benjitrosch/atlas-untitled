@@ -46,23 +46,13 @@ options:
     -d  --demo              generates random boxes (exclude first arg)
 */
 
+#include "main.h"
+
 ////////////////////////////////////
 //
 // debug methods for logging program
 // progress, benchmark, and assertions
 //
-
-#include <stdarg.h>
-#include <stdio.h>
-
-enum
-{
-    blocs__log_INFO = 6,
-    blocs__log_GOOD = 2,
-    blocs__log_WARN = 3,
-    blocs__log_ERROR = 1,
-    blocs__log_WHITE = 7,
-};
 
 void blocs__log(int type, const char* message, ...)
 {
@@ -73,8 +63,6 @@ void blocs__log(int type, const char* message, ...)
     va_end(vl);
     printf("\x1B[3%dm%s\x1B[0m\n", type, s);
 }
-
-#include <stdlib.h>
 
 void blocs__assert(int condition, const char* message, ...)
 {
@@ -87,8 +75,6 @@ void blocs__assert(int condition, const char* message, ...)
     printf("\x1B[31mERROR: %s\x1B[0m\n", s);
     abort();
 }
-
-#include <time.h>
 
 /**
  * @brief Returns current time in milliseconds
@@ -107,20 +93,6 @@ double blocs__get_time_ms()
 // image loading, unloading, saving
 // and pixel data manipulation
 //
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image.h"
-#include "stb_image_write.h"
-
-#define CHANNELS 4
-
-typedef struct blocs__image
-{
-    int32_t     w;
-    int32_t     h;
-    uint8_t*    data;
-} blocs__image;
 
 /**
  * @brief       Reads RGBA pixel data from an image located
@@ -184,26 +156,12 @@ void blocs__save_png(const char* output, blocs__image* image)
 // texture atlas generation
 //
 
-#define max(a,b)             \
-({                           \
-    __typeof__ (a) _a = (a); \
-    __typeof__ (b) _b = (b); \
-    _a > _b ? _a : _b;       \
-})
-
-typedef struct blocs__rect
+int blocs__compare_area(const void* a, const void* b)
 {
-    int32_t     x;
-    int32_t     y;
-    int32_t     w;
-    int32_t     h;
-} blocs__rect;
-
-typedef struct blocs__texture
-{
-    blocs__rect rect;
-    uint32_t    buffer_index;
-} blocs__texture;
+    blocs__rect rect_a = ((blocs__texture*)a)->rect;
+    blocs__rect rect_b = ((blocs__texture*)b)->rect;
+    return rect_b.h - rect_a.h;
+}
 
 /**
  * @brief               Adds a texture to the list of textures to be packed
@@ -229,13 +187,6 @@ void blocs__add_texture(blocs__texture* textures, int index, uint8_t* buffer, ui
     uint32_t buffer_length = w * h * CHANNELS;
     memcpy(buffer + (*buffer_index), data, buffer_length);
     (*buffer_index) += buffer_length;
-}
-
-int blocs__compare_area(const void* a, const void* b)
-{
-    blocs__rect rect_a = ((blocs__texture*)a)->rect;
-    blocs__rect rect_b = ((blocs__texture*)b)->rect;
-    return rect_b.h - rect_a.h;
 }
 
 /**
@@ -440,10 +391,18 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
 // file system apis
 //
 
-#include <dirent.h>
-
-#define PNG_EXT "png"
-#define JPG_EXT "jpg"
+/**
+ * @brief       Gets the file extension from a file path
+ * 
+ * @param file  File path
+ * @return const char*
+ */
+const char* blocs__file_ext(const char* file)
+{
+    const char* dot = strrchr(file, '.');
+    if (!dot || dot == file) return "";
+    return dot + 1;
+}
 
 /**
  * @brief       Checks whether an image's extension
@@ -456,19 +415,6 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
 int blocs__ext_is_img(const char* ext)
 {
     return strcmp(ext, PNG_EXT) == 0 || strcmp(ext, JPG_EXT) == 0;
-}
-
-/**
- * @brief       Gets the file extension from a file path
- * 
- * @param file  File path
- * @return const char*
- */
-const char* blocs__file_ext(const char* file)
-{
-    const char* dot = strrchr(file, '.');
-    if (!dot || dot == file) return "";
-    return dot + 1;
 }
 
 /**
@@ -491,7 +437,7 @@ int blocs__size_dir(const char* path)
     blocs__assert((dir_ptr = opendir(path)) != NULL, "could not count files in directory \"%s\"", path);
 
     int count = 0;
-    while((direntp = readdir(dir_ptr)))
+    while ((direntp = readdir(dir_ptr)))
     {
         if (strcmp(direntp->d_name, ".") == 0 ||
             strcmp(direntp->d_name, "..") == 0)
@@ -562,14 +508,6 @@ void blocs__enumerate_dir(const char* path, char** files, int* index)
 // random HSLA box generation
 //
 
-typedef struct blocs__color
-{
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
-} blocs__color;
-
 float blocs__hue(float p, float q, float t)
 {
     if (t < 0) t += 1;
@@ -581,6 +519,26 @@ float blocs__hue(float p, float q, float t)
     if (t < 2.f / 3.f)   
         return p + (q - p) * (2.f / 3.f - t) * 6.f;
     return p;
+}
+
+/**
+ * @brief       Fill bitmap's pixel data with
+ *              an RGBA color
+ * 
+ * @param image Image to fill
+ */
+void blocs__fill_color(blocs__image* image, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    int w = image->w;
+    int h = image->h;
+    image->data = (uint8_t*)malloc(w * h * CHANNELS * sizeof(uint8_t));
+    for (int i = 0; i < w * h * CHANNELS; i += CHANNELS)
+    {
+        image->data[i + 0] = r;
+        image->data[i + 1] = g;
+        image->data[i + 2] = b;
+        image->data[i + 3] = a;
+    }
 }
 
 /**
@@ -610,26 +568,6 @@ blocs__color blocs__hsla(float h, float s, float l, float a)
     }
 
     return color;
-}
-
-/**
- * @brief       Fill bitmap's pixel data with
- *              an RGBA color
- * 
- * @param image Image to fill
- */
-void blocs__fill_color(blocs__image* image, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-    int w = image->w;
-    int h = image->h;
-    image->data = (uint8_t*)malloc(w * h * CHANNELS * sizeof(uint8_t));
-    for (int i = 0; i < w * h * CHANNELS; i += CHANNELS)
-    {
-        image->data[i + 0] = r;
-        image->data[i + 1] = g;
-        image->data[i + 2] = b;
-        image->data[i + 3] = a;
-    }
 }
 
 blocs__image blocs__rand_box(int w, int h)
@@ -773,7 +711,7 @@ int main(int argc, const char *argv[])
         else
         {
             images = (blocs__image*)malloc(sizeof(blocs__image) * 1000);
-            
+
             srand(time(NULL));
             if (((float)rand() / RAND_MAX) > 0.5)         images[num_images++] = blocs__rand_box(400,  80);
             if (((float)rand() / RAND_MAX) > 0.5)         images[num_images++] = blocs__rand_box( 80, 400);

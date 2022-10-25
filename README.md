@@ -26,3 +26,7 @@ options:
     -s  --size              sets atlas size (width and height equal)
     -d  --demo              generates random boxes (exclude first arg)
 ```
+
+deps:
+    
+[stb_image, stb_image_write](https://github.com/nothings/stb)
