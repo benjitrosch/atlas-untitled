@@ -352,17 +352,7 @@ image* atlas::generate_bitmap()
             }
         }
         else
-        {
-            uint8_t r = (m_buffer + texture.buffer_index)[0];
-            uint8_t g = (m_buffer + texture.buffer_index)[1];
-            uint8_t b = (m_buffer + texture.buffer_index)[2];
-            uint8_t a = (m_buffer + texture.buffer_index)[3];
-            log(Log::WARN, "%d, %d, %d, %d", r, g, b, a);
-
-            log(Log::WARN, "%d, %d, %d, %d", rect.x, rect.y, rect.w, rect.h);
-            
             m_bitmap->set_pixels(m_buffer + texture.buffer_index, rect);
-        }
     }
 
     return m_bitmap;
