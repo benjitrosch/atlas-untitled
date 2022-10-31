@@ -175,17 +175,18 @@ int blocs__compare_area(const void* a, const void* b)
  * @param w             Width of new bitmap
  * @param h             Height of new bitmap
  */
-void blocs__add_texture(blocs__texture* textures, int index, uint8_t* buffer, uint32_t* buffer_index, const uint8_t* data, const int w, const int h)
+void blocs__add_texture(blocs__texture* textures, int index, uint8_t* buffer, uint32_t* buffer_index, blocs__image image, int32_t name_index)
 {
-    blocs__assert(data != NULL, "could not read texture data");
+    blocs__assert(image.data != NULL, "could not read texture data");
 
     blocs__texture texture = {
-        { 0, 0, w, h },
-        (*buffer_index)
+        { 0, 0, image.w, image.h },
+        name_index,
+        (*buffer_index),
     };
     textures[index] = texture;
-    uint32_t buffer_length = w * h * CHANNELS;
-    memcpy(buffer + (*buffer_index), data, buffer_length);
+    uint32_t buffer_length = image.w * image.h * CHANNELS;
+    memcpy(buffer + (*buffer_index), image.data, buffer_length);
     (*buffer_index) += buffer_length;
 }
 
@@ -227,14 +228,14 @@ void blocs__pack_atlas(blocs__texture* textures, int len, int size, int expand, 
     int n = 1;
 
     // sort images tallest to shortest
-    qsort(textures, len, sizeof(int32_t) * 5, blocs__compare_area);
+    qsort(textures, len, sizeof(int32_t) * 5 + sizeof(uint32_t), blocs__compare_area);
 
     for (int i = 0; i < len; i++)
     {
         blocs__texture* texture = &textures[i];
         blocs__rect rect = (&textures[i])->rect;
 
-        blocs__assert(rect.w < size && rect.h < size,
+        blocs__assert(rect.w <= size && rect.h <= size,
             "texture larger (%dpx, %dpx) than maximum size (%dpx)",
             rect.w, rect.h, size);
 
@@ -386,10 +387,78 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
     }
 }
 
+void blocs__save_json(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names)
+{
+    FILE* file = fopen(output, "w");
+    fprintf(file, "{\n");
+    fprintf(file, "\t\"w\": %d,\n", atlas_bmp->w);
+    fprintf(file, "\t\"h\": %d,\n", atlas_bmp->h);
+    fprintf(file, "\t\"n\": %d,\n", len);
+    fprintf(file, "\t\"textures\": [\n");
+    for (int i = 0; i < len; i++)
+    {
+        blocs__texture texture = textures[i];
+        blocs__rect rect = texture.rect;
+
+        fprintf(file, "\t\t{\n");
+        fprintf(file, "\t\t\t\"n\": \"%s\",\n", names[texture.name_index]);
+        fprintf(file, "\t\t\t\"x\": %d,\n", rect.x);
+        fprintf(file, "\t\t\t\"y\": %d,\n", rect.y);
+        fprintf(file, "\t\t\t\"w\": %d,\n", rect.w);
+        fprintf(file, "\t\t\t\"h\": %d\n", rect.h);
+        fprintf(file, "\t\t}");
+        if (i != len - 1)
+            fprintf(file, ",\n");
+    }
+    fprintf(file, "\n\t]\n");
+    fprintf(file, "}");
+    fclose(file);
+}
+
 ////////////////////////////////////
 //
 // file system apis
 //
+
+/**
+ * @brief       Gets the file path to a file without
+ *              the file name
+ * 
+ * @param file  Path to file
+ * @return const char*
+ */
+const char* blocs__file_path(const char* file)
+{
+    char* path = malloc(strlen(file + 1));
+    strcpy(path, file);
+    const char* slash = strrchr(path, '/');
+    int index = slash - path;
+    path[index] = '\0';
+    return path;
+}
+
+/**
+ * @brief       Gets the file name without extension
+ *              from a file path
+ * 
+ * @param file  File path
+ * @return const char*
+ */
+const char* blocs__file_name(const char* file)
+{
+    const char* slash = strrchr(file, '/');
+    const char* file_without_path = !slash || slash == file ? file : slash + 1;
+
+    char* name = malloc(strlen(file_without_path + 1));
+    strcpy(name, file_without_path);
+
+    const char* dot = strrchr(name, '.');
+    if (!dot || dot == name) return name;
+    int index = dot - name;
+    name[index] = '\0';
+
+    return name;
+}
 
 /**
  * @brief       Gets the file extension from a file path
@@ -400,7 +469,7 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
 const char* blocs__file_ext(const char* file)
 {
     const char* dot = strrchr(file, '.');
-    if (!dot || dot == file) return "";
+    if (!dot || dot == file) return file;
     return dot + 1;
 }
 
@@ -582,6 +651,7 @@ blocs__image blocs__rand_box(int w, int h)
 
 const char*     input_dir;
 const char*     output_dir;
+const char*     output_name;
 
 int             log_verbose;
 int             demo;
@@ -595,6 +665,7 @@ int32_t         atlas_expand;
 int32_t         atlas_border;
 int             atlas_unique;
 
+const char**    names;
 blocs__image*   images;
 blocs__texture* textures;
 
@@ -603,7 +674,8 @@ int main(int argc, const char *argv[])
     blocs__assert(argc > 2, "expected \"pack [INPUT] [OPTS...]\"");
 
     // Set default output dir to "atlas.png" in relative path
-    output_dir = "atlas.png";
+    output_dir = ".";
+    output_name = "atlas";
     // Set default size to 4k
     atlas_size = 4096;
 
@@ -614,8 +686,8 @@ int main(int argc, const char *argv[])
         // If first arg is demo, set demo defaults
         if (strcmp(input_dir, "-d") == 0 || strcmp(input_dir, "--demo") == 0)
         {
-            demo = 1; 
-            output_dir = "demo.png";
+            demo = 1;
+            output_name = "demo";
             atlas_size = 960;
         }
 
@@ -626,7 +698,8 @@ int main(int argc, const char *argv[])
             {
                 i++;
                 blocs__assert(i < argc, "went out of bounds looking for output argument value");
-                output_dir = argv[i];
+                output_dir = blocs__file_path(argv[i]);
+                output_name = blocs__file_name(argv[i]);
             }
             else if (strcmp(arg, "-s") == 0 || strcmp(arg, "--size") == 0)
             {
@@ -687,6 +760,7 @@ int main(int argc, const char *argv[])
             }
 
             images = (blocs__image*)malloc(sizeof(blocs__image) * num_files);
+            names = (const char**)malloc(1024 * num_files);
 
             for (int i = 0; i < num_files; i++)
             {
@@ -697,6 +771,7 @@ int main(int argc, const char *argv[])
                     blocs__image image;
                     if (blocs__load_from_path(f, &image))
                     {
+                        names[num_images] = blocs__file_name(f);
                         images[num_images] = image;
                         if (log_verbose)
                             blocs__log(blocs__log_GOOD, "   ✓ \"%s\"", f);
@@ -711,6 +786,10 @@ int main(int argc, const char *argv[])
         else
         {
             images = (blocs__image*)malloc(sizeof(blocs__image) * 1000);
+            
+            const char* box_name = "box";
+            names = (const char**)malloc(sizeof(box_name));
+            names[0] = box_name;
 
             srand(time(NULL));
             if (((float)rand() / RAND_MAX) > 0.5)         images[num_images++] = blocs__rand_box(400,  80);
@@ -744,19 +823,18 @@ int main(int argc, const char *argv[])
     {
         buffer_index = 0U;
         buffer = (uint8_t*)malloc(atlas_size * atlas_size * CHANNELS * sizeof(uint8_t));
-        textures = (blocs__texture*)malloc((sizeof(int32_t) * 4 + sizeof(uint32_t)) * num_images);
+        textures = (blocs__texture*)malloc((sizeof(int32_t) * 5 + sizeof(uint32_t)) * num_images);
 
         for (int i = 0; i < num_images; i++)
         {
             blocs__image image = images[i];
-            blocs__assert(image.w < atlas_size && image.h < atlas_size, "pixel data (%dpx, %dpx) too large for atlas (%dpx)", image.w, image.h, atlas_size);
+            blocs__assert(image.w <= atlas_size && image.h <= atlas_size, "pixel data (%dpx, %dpx) too large for atlas (%dpx)", image.w, image.h, atlas_size);
             blocs__add_texture(textures,
                 i,
                 buffer,
                 &buffer_index,
-                image.data,
-                image.w,
-                image.h
+                image,
+                demo ? 0 : i
             );
         }
     }
@@ -799,13 +877,34 @@ int main(int argc, const char *argv[])
     
     // Save atlas as png
     {
-        blocs__save_png(output_dir, atlas_bmp);
+        char* png_output;
+        png_output = (char*)malloc(strlen(output_dir) + strlen(output_name) + 6);
+        sprintf(png_output, "%s/%s.png", output_dir, output_name);
+        blocs__save_png(png_output, atlas_bmp);
 
         if (log_verbose)
         {
             time_curr = blocs__get_time_ms();
             blocs__log(blocs__log_WHITE,
                 " - Save PNG .................. %.2fms",
+                time_curr - time_prev
+            );
+            time_prev = time_curr;
+        }
+    }
+
+    // Serialize atlas data
+    {
+        char* json_output;
+        json_output = (char*)malloc(strlen(output_dir) + strlen(output_name) + 7);
+        sprintf(json_output, "%s/%s.json", output_dir, output_name);
+        blocs__save_json(json_output, atlas_bmp, textures, num_images, names);
+
+        if (log_verbose)
+        {
+            time_curr = blocs__get_time_ms();
+            blocs__log(blocs__log_WHITE,
+                " - Save JSON ................. %.2fms",
                 time_curr - time_prev
             );
             time_prev = time_curr;

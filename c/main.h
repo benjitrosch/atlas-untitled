@@ -12,9 +12,9 @@
 
 enum
 {
-    blocs__log_INFO = 6,
-    blocs__log_GOOD = 2,
-    blocs__log_WARN = 3,
+    blocs__log_INFO  = 6,
+    blocs__log_GOOD  = 2,
+    blocs__log_WARN  = 3,
     blocs__log_ERROR = 1,
     blocs__log_WHITE = 7,
 };
@@ -76,14 +76,16 @@ typedef struct blocs__rect
 typedef struct blocs__texture
 {
     blocs__rect rect;
+    int32_t     name_index;
     uint32_t    buffer_index;
 } blocs__texture;
 
 int blocs__compare_area(const void* a, const void* b);
-void blocs__add_texture(blocs__texture* textures, int index, uint8_t* buffer, uint32_t* buffer_index, const uint8_t* data, const int w, const int h);
+void blocs__add_texture(blocs__texture* textures, int index, uint8_t* buffer, uint32_t* buffer_index, blocs__image image, int32_t name_index);
 void blocs__pack_atlas(blocs__texture* textures, int len, int size, int expand, int border);
 void blocs__set_pixels(blocs__image* image, uint8_t* data, blocs__rect dst);
 void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, blocs__image* atlas_bmp, int expand);
+void blocs__save_json(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names);
 
 ////////////////////////////////////
 //
@@ -95,6 +97,8 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
 #define PNG_EXT "png"
 #define JPG_EXT "jpg"
 
+const char* blocs__file_path(const char* file);
+const char* blocs__file_name(const char* file);
 const char* blocs__file_ext(const char* file);
 int blocs__ext_is_img(const char* ext);
 int blocs__size_dir(const char* path);

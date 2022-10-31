@@ -177,15 +177,17 @@ atlas::~atlas()
  * @brief               Adds a texture to the list of textures to be packed
  *                      and adds bitmap data to buffer
  * 
+ * @param name          Name of texture
  * @param image         Image to be packed and bitmap data added to buffer
  */
 void atlas::add_texture(const image& image)
 {
     log_assert(image.data != nullptr, "could not read texture data");
-    log_assert(image.w < m_size && image.h < m_size, "pixel data (%dpx, %dpx) too large for atlas (%dpx)",
+    log_assert(image.w <= m_size && image.h <= m_size, "pixel data (%dpx, %dpx) too large for atlas (%dpx)",
         image.w, image.h, m_size);
 
     m_textures.push_back({
+        image.name,
         { 0, 0, image.w, image.h },
         m_buffer_index
     });
@@ -230,7 +232,7 @@ void atlas::pack()
     for (auto& texture : m_textures)
     {
         auto& rect = texture.rect;
-        log_assert(rect.w < m_size && rect.h < m_size,
+        log_assert(rect.w <= m_size && rect.h <= m_size,
             "texture larger (%dpx, %dpx) than maximum size (%dpx)",
             rect.w, rect.h, m_size);
 
@@ -358,12 +360,41 @@ image* atlas::generate_bitmap()
     return m_bitmap;
 }
 
+void atlas::save_json(const std::string& output)
+{
+    std::ofstream stream(output, std::ofstream::trunc);
+    stream << '{' << '\n';
+    stream << "\t\"w\": " << m_bitmap->w << ',' << '\n';
+    stream << "\t\"h\": " << m_bitmap->h << ',' << '\n';
+    stream << "\t\"n\": " << m_textures.size() << ',' << '\n';
+    stream << "\t\"textures\": " << '[' << '\n';
+    for (int i = 0; i < m_textures.size(); i++)
+    {
+        auto texture = m_textures[i];
+        auto rect = texture.rect;
+
+        stream << "\t\t" << '{' << '\n';
+        stream << "\t\t\t" << "\"n\": " << '"' << texture.name << '"' << ',' << '\n';
+        stream << "\t\t\t" << "\"x\": " << rect.x << ',' << '\n';
+        stream << "\t\t\t" << "\"y\": " << rect.y << ',' << '\n';
+        stream << "\t\t\t" << "\"w\": " << rect.w << ',' << '\n';
+        stream << "\t\t\t" << "\"h\": " << rect.h << '\n';
+        stream << "\t\t" << '}';
+        if (i != m_textures.size() - 1)
+            stream << ',' << '\n';
+    }
+    stream << '\n' << '\t' << ']' << '\n';
+    stream << '}';
+    stream.close();
+}
+
 ////////////////////////////////////
 
 namespace
 {
     std::string     input_dir;
     std::string     output_dir;
+    std::string     output_name;
 
     bool            log_verbose;
     bool            is_demo;
@@ -386,7 +417,8 @@ int main(int argc, const char *argv[])
     log_assert(argc > 2, "expected \"pack [INPUT] [OPTS...]\"");
 
     // Set default output dir to "atlas.png" in relative path
-    output_dir = "atlas.png";
+    output_dir = "";
+    output_name = "atlas";
     // Set default size to 4k
     atlas_size = 4096;
 
@@ -398,7 +430,7 @@ int main(int argc, const char *argv[])
         if (input_dir == "-d" || input_dir == "--demo")
         {
             is_demo = true; 
-            output_dir = "demo.png";
+            output_name = "demo";
             atlas_size = 960;
         }
 
@@ -410,7 +442,8 @@ int main(int argc, const char *argv[])
             {
                 i++;
                 log_assert(i < argc, "went out of bounds looking for output argument value");
-                output_dir = argv[i];
+                output_dir = file_path(argv[i]);
+                output_name = file_name(argv[i]);
             }
             else if (arg == "-s" || arg == "--size")
             {
@@ -473,6 +506,7 @@ int main(int argc, const char *argv[])
                 if (ext_is_img(ext))
                 {
                     image bmp = {};
+                    bmp.name = file_name(f);
                     if (bmp.load(f))
                     {
                         images.emplace_back(bmp);
@@ -556,13 +590,28 @@ int main(int argc, const char *argv[])
     
     // Save atlas as png
     {
-        atlas_bmp->save_png(output_dir);
+        atlas_bmp->save_png(output_dir + output_name + ".png");
 
         if (log_verbose)
         {
             time_curr = get_time_ms();
             log(Log::WHITE,
                 " - Save PNG .................. %.2fms",
+                time_curr - time_prev
+            );
+            time_prev = time_curr;
+        }
+    }
+
+    // Serialize atlas data
+    {
+        packer->save_json(output_dir + output_name + ".json");
+
+        if (log_verbose)
+        {
+            time_curr = get_time_ms();
+            log(Log::WHITE,
+                " - Save JSON ................. %.2fms",
                 time_curr - time_prev
             );
             time_prev = time_curr;
@@ -594,7 +643,7 @@ int main(int argc, const char *argv[])
         delete packer;
     }
 
-    log(Log::WHITE, "Saved to %s", output_dir.c_str());
+    log(Log::WHITE, "Saved to \"%s\"", output_dir.c_str());
 
     return 0;
 }

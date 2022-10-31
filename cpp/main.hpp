@@ -2,6 +2,7 @@
 #pragma once
 
 #include <filesystem>
+#include <fstream>
 #include <format>
 #include <chrono>
 #include <string>
@@ -74,6 +75,7 @@ namespace blocs__atlas
 
     struct image
     {
+        std::string name;
         int32_t     w;
         int32_t     h;
         uint8_t*    data;
@@ -105,6 +107,7 @@ namespace blocs__atlas
 
     struct texture
     {
+        std::string name;
         rect        rect;
         uint32_t    buffer_index;
     };
@@ -131,6 +134,7 @@ namespace blocs__atlas
 
         void add_texture(const image& image);
         void pack();
+        void save_json(const std::string& output);
         image* generate_bitmap();
     };
 
@@ -140,12 +144,36 @@ namespace blocs__atlas
     //
 
     /**
+     * @brief       Gets the file path to a file without
+     *              the file name
+     * 
+     * @param file  Path to file
+     * @return std::string 
+     */
+    inline std::string file_path(const std::string& file)
+    {
+        return static_cast<std::filesystem::path>(file).remove_filename().string();
+    }
+
+    /**
+     * @brief       Gets the file name without extension
+     *              from a file path
+     * 
+     * @param file  File path
+     * @return std::string 
+     */
+    inline std::string file_name(const std::string& file)
+    {
+        return static_cast<std::filesystem::path>(file).stem().string();
+    }
+
+    /**
      * @brief       Gets the file extension from a file path
      * 
      * @param file  File path
      * @return std::string 
      */
-    std::string file_ext(const std::string& file)
+    inline std::string file_ext(const std::string& file)
     {
         return static_cast<std::filesystem::path>(file).extension().string();
     }
@@ -158,7 +186,7 @@ namespace blocs__atlas
      * @return true 
      * @return false 
      */
-    bool ext_is_img(const std::string& ext)
+    inline bool ext_is_img(const std::string& ext)
     {
         return ext == PNG_EXT || ext == JPG_EXT;
     }
@@ -169,7 +197,7 @@ namespace blocs__atlas
      * @param path  Directory to search in
      * @return std::size_t 
      */
-    std::size_t size_dir(const std::string& path)
+    inline std::size_t size_dir(const std::string& path)
     {
         return (std::size_t)std::distance(std::filesystem::recursive_directory_iterator{path},
             std::filesystem::recursive_directory_iterator{});
@@ -181,7 +209,7 @@ namespace blocs__atlas
      * @param path  Directory to search in
      * @param files List of file names
      */
-    void enumerate_dir(const std::string& path, std::vector<std::string>& files)
+    inline void enumerate_dir(const std::string& path, std::vector<std::string>& files)
     {
         log_assert(std::filesystem::is_directory(path), "passed in path is not a valid directory");
         for (auto p : std::filesystem::recursive_directory_iterator(path))
@@ -251,6 +279,7 @@ namespace blocs__atlas
         inline image rand_box(int w, int h)
         {
             image bmp = image(w, h);
+            bmp.name = "box";
             hsl_color color = hsl_color((float)rand() / RAND_MAX, 1.0f, 0.7f, 1.0f);
             fill_color(bmp, color);
             return bmp;
