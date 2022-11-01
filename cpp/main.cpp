@@ -145,6 +145,22 @@ void image::save_png(const std::string& output)
     stbi_write_png(output.c_str(), w, h, CHANNELS, data, w * CHANNELS);
 }
 
+/**
+ * @brief       Generates a unique hash based on
+ *              the pixels of a loaded bitmap
+ */
+std::size_t image::generate_hash()
+{
+    std::size_t hash = 0;
+    int len = w * h * 4;
+    std::string str;
+    str.reserve(len);
+    for (int i = 0; i < len; i++)
+        str += std::to_string(data[i]);
+    hash ^= std::hash<std::string>{}(str) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    return hash;
+}
+
 ////////////////////////////////////
 //
 // texture atlas generation
@@ -159,8 +175,8 @@ void image::save_png(const std::string& output)
  * @param border        Amount of empty space between bitmaps
  * @param unique        Whether to enforce unique bitmaps
  */
-atlas::atlas(std::size_t n, int size, int expand, int border, bool unique)
-    : m_size(size), m_expand(expand), m_border(border), m_unique(unique)
+atlas::atlas(std::size_t n, int size, int expand, int border)
+    : m_size(size), m_expand(expand), m_border(border)
 {
     m_buffer = new uint8_t[size * size * CHANNELS];
     m_buffer_index = 0U;
@@ -177,7 +193,6 @@ atlas::~atlas()
  * @brief               Adds a texture to the list of textures to be packed
  *                      and adds bitmap data to buffer
  * 
- * @param name          Name of texture
  * @param image         Image to be packed and bitmap data added to buffer
  */
 void atlas::add_texture(const image& image)
@@ -408,6 +423,7 @@ namespace
     image*          atlas_bmp;
 
     std::vector<image> images;
+    std::unordered_set<std::size_t> hashes;
 }
 
 int main(int argc, const char *argv[])
@@ -509,9 +525,21 @@ int main(int argc, const char *argv[])
                     bmp.name = file_name(f);
                     if (bmp.load(f))
                     {
-                        images.emplace_back(bmp);
-                        if (log_verbose)
-                            log(Log::GOOD, "   ✓ \"%s\"", f.c_str());
+                        std::size_t hash = bmp.generate_hash();
+                        if (atlas_unique && hashes.find(hash) != hashes.end())
+                        {
+                            log(Log::WARN,
+                                "   ! Removed non-unique image \"%s\" from batch",
+                                bmp.name.c_str()
+                            );
+                        }
+                        else
+                        {
+                            hashes.insert(hash);
+                            images.emplace_back(bmp);
+                            if (log_verbose)
+                                log(Log::GOOD, "   ✓ \"%s\"", f.c_str());
+                        }
                     }
                     else
                     {
@@ -553,7 +581,7 @@ int main(int argc, const char *argv[])
     
     // Allocate pixel data buffer and copy textures into buffer
     {
-        packer = new atlas(images.size(), atlas_size, atlas_expand, atlas_border, atlas_unique);
+        packer = new atlas(images.size(), atlas_size, atlas_expand, atlas_border);
         for (auto& image : images)
             packer->add_texture(image);
     }

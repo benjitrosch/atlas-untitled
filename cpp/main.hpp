@@ -3,10 +3,12 @@
 
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <format>
 #include <chrono>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -90,6 +92,7 @@ namespace blocs__atlas
         void clear();
         void set_pixels(uint8_t* data, const rect& dst);
         void save_png(const std::string& output);
+        std::size_t generate_hash();
     };
 
     ////////////////////////////////////
@@ -115,20 +118,20 @@ namespace blocs__atlas
     class atlas
     {
     public:
-        int m_size;
-        int m_expand;
-        int m_border;
-        bool m_unique;
+        int         m_size;
+        int         m_expand;
+        int         m_border;
 
-        uint8_t* m_buffer;
-        uint32_t m_buffer_index;
+        uint8_t*    m_buffer;
+        uint32_t    m_buffer_index;
 
-        image* m_bitmap;
+        image*      m_bitmap;
+
         std::vector<texture> m_textures;
 
     public:
         atlas() = delete;
-        atlas(std::size_t n, int size, int expand, int border, bool unique);
+        atlas(std::size_t n, int size, int expand, int border);
 
         ~atlas();
 

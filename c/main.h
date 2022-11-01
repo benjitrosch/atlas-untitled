@@ -52,6 +52,8 @@ int blocs__load_from_path(const char* path, blocs__image* image);
 void blocs__unload_image(blocs__image* image);
 void blocs__clear_pixels(blocs__image* image);
 void blocs__save_png(const char* output, blocs__image* image);
+size_t blocs__generate_hash(blocs__image* image, int len);
+int blocs__check_hashes(size_t hash, size_t* hashes, int len);
 
 ////////////////////////////////////
 //

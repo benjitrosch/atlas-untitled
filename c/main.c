@@ -151,6 +151,30 @@ void blocs__save_png(const char* output, blocs__image* image)
     stbi_write_png(output, image->w, image->h, CHANNELS, image->data, image->w * CHANNELS);
 }
 
+/**
+ * @brief       Generates a unique hash based on
+ *              the pixels of a loaded bitmap
+ * 
+ * @param image Image data to generate hash from
+ * @param len   Size of bitmap data
+ */
+size_t blocs__generate_hash(blocs__image* image, int len)
+{
+    char* str = (char*)image->data;
+    size_t hash = 5381;
+    for (int i = 0; i < len; str++, i++)
+        hash = ((hash << 5) + hash) + (*str);    
+    return hash;
+}
+
+int blocs__check_hashes(size_t hash, size_t* hashes, int len)
+{
+    for (int i = 0; i < len; i++)
+        if (hash == hashes[i])
+            return 1;
+    return 0;
+}
+
 ////////////////////////////////////
 //
 // texture atlas generation
@@ -666,6 +690,7 @@ int32_t         atlas_border;
 int             atlas_unique;
 
 const char**    names;
+size_t*         hashes;
 blocs__image*   images;
 blocs__texture* textures;
 
@@ -761,6 +786,7 @@ int main(int argc, const char *argv[])
 
             images = (blocs__image*)malloc(sizeof(blocs__image) * num_files);
             names = (const char**)malloc(1024 * num_files);
+            hashes = (size_t*)malloc(sizeof(size_t) * num_files);
 
             for (int i = 0; i < num_files; i++)
             {
@@ -771,11 +797,22 @@ int main(int argc, const char *argv[])
                     blocs__image image;
                     if (blocs__load_from_path(f, &image))
                     {
-                        names[num_images] = blocs__file_name(f);
-                        images[num_images] = image;
-                        if (log_verbose)
-                            blocs__log(blocs__log_GOOD, "   ✓ \"%s\"", f);
-                        num_images++;
+                        hashes[num_images] = blocs__generate_hash(&image, image.w * image.h * 4);
+                        if (atlas_unique && blocs__check_hashes(hashes[num_images], hashes, num_images - 1))
+                        {
+                            blocs__log(blocs__log_WARN,
+                                "   ! Removed non-unique image \"%s\" from batch",
+                                f
+                            );
+                        }
+                        else
+                        {
+                            names[num_images] = blocs__file_name(f);
+                            images[num_images] = image;
+                            if (log_verbose)
+                                blocs__log(blocs__log_GOOD, "   ✓ \"%s\"", f);
+                            num_images++;
+                        }
                     }
                     else
                         if (log_verbose)
