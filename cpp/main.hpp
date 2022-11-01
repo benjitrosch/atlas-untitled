@@ -1,11 +1,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <format>
-#include <chrono>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -138,8 +139,15 @@ namespace blocs__atlas
         void add_texture(const image& image);
         void pack();
         void save_json(const std::string& output);
+        void save_binary(const std::string& output);
         image* generate_bitmap();
     };
+
+    inline void write_binary(std::ofstream& stream, int16_t value)
+    {
+        stream.put(static_cast<uint8_t>(value & 0xff));
+        stream.put(static_cast<uint8_t>((value >> 8) & 0xff));
+    }
 
     ////////////////////////////////////
     //

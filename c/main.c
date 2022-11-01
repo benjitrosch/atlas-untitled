@@ -411,6 +411,11 @@ void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, b
     }
 }
 
+/**
+ * @brief           Saves atlas data in JSON format
+ * 
+ * @param output    Output directory
+ */
 void blocs__save_json(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names)
 {
     FILE* file = fopen(output, "w");
@@ -436,6 +441,39 @@ void blocs__save_json(const char* output, blocs__image* atlas_bmp, blocs__textur
     }
     fprintf(file, "\n\t]\n");
     fprintf(file, "}");
+    fclose(file);
+}
+
+void blocs__write_binary(FILE* file, int16_t value)
+{
+    uint8_t a = (uint8_t)(value & 0xff);
+    uint8_t b = (uint8_t)((value >> 8) & 0xff);
+    fwrite(&a, sizeof(uint8_t), 1, file);
+    fwrite(&b, sizeof(uint8_t), 1, file);
+}
+
+/**
+ * @brief           Saves atlas data in binary format
+ * 
+ * @param output    Output directory
+ */
+void blocs__save_binary(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names)
+{
+    FILE* file = fopen(output, "w");
+    blocs__write_binary(file, (int16_t)atlas_bmp->w);
+    blocs__write_binary(file, (int16_t)atlas_bmp->h);
+    blocs__write_binary(file, (int16_t)len);
+    for (int i = 0; i < len; i++)
+    {
+        blocs__texture texture = textures[i];
+        blocs__rect rect = texture.rect;
+
+        fwrite(names[texture.name_index], sizeof(char), strlen(names[texture.name_index]) + 1, file);
+        blocs__write_binary(file, (int16_t)rect.x);
+        blocs__write_binary(file, (int16_t)rect.y);
+        blocs__write_binary(file, (int16_t)rect.w);
+        blocs__write_binary(file, (int16_t)rect.h);
+    }
     fclose(file);
 }
 
@@ -937,11 +975,16 @@ int main(int argc, const char *argv[])
         sprintf(json_output, "%s/%s.json", output_dir, output_name);
         blocs__save_json(json_output, atlas_bmp, textures, num_images, names);
 
+        char* binary_output;
+        binary_output = (char*)malloc(strlen(output_dir) + strlen(output_name) + 6);
+        sprintf(binary_output, "%s/%s.dat", output_dir, output_name);
+        blocs__save_binary(binary_output, atlas_bmp, textures, num_images, names);
+
         if (log_verbose)
         {
             time_curr = blocs__get_time_ms();
             blocs__log(blocs__log_WHITE,
-                " - Save JSON ................. %.2fms",
+                " - Serialize Data ............ %.2fms",
                 time_curr - time_prev
             );
             time_prev = time_curr;

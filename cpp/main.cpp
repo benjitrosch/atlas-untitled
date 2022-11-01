@@ -375,6 +375,11 @@ image* atlas::generate_bitmap()
     return m_bitmap;
 }
 
+/**
+ * @brief           Saves atlas data in JSON format
+ * 
+ * @param output    Output directory
+ */
 void atlas::save_json(const std::string& output)
 {
     std::ofstream stream(output, std::ofstream::trunc);
@@ -400,6 +405,30 @@ void atlas::save_json(const std::string& output)
     }
     stream << '\n' << '\t' << ']' << '\n';
     stream << '}';
+    stream.close();
+}
+
+/**
+ * @brief           Saves atlas data in binary format
+ * 
+ * @param output    Output directory
+ */
+void atlas::save_binary(const std::string& output)
+{
+    std::ofstream stream(output, std::ios::out | std::ios::binary);
+    write_binary(stream, (int16_t)m_bitmap->w);
+    write_binary(stream, (int16_t)m_bitmap->h);
+    write_binary(stream, (int16_t)m_textures.size());
+    for (int i = 0; i < m_textures.size(); i++)
+    {
+        auto texture = m_textures[i];
+        auto rect = texture.rect;
+        stream.write(texture.name.data(), texture.name.length() + 1);
+        write_binary(stream, (int16_t)rect.x);
+        write_binary(stream, (int16_t)rect.y);
+        write_binary(stream, (int16_t)rect.w);
+        write_binary(stream, (int16_t)rect.h);
+    }
     stream.close();
 }
 
@@ -634,12 +663,13 @@ int main(int argc, const char *argv[])
     // Serialize atlas data
     {
         packer->save_json(output_dir + output_name + ".json");
+        packer->save_binary(output_dir + output_name + ".dat");
 
         if (log_verbose)
         {
             time_curr = get_time_ms();
             log(Log::WHITE,
-                " - Save JSON ................. %.2fms",
+                " - Serialize Data ............ %.2fms",
                 time_curr - time_prev
             );
             time_prev = time_curr;

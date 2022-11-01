@@ -88,6 +88,8 @@ void blocs__pack_atlas(blocs__texture* textures, int len, int size, int expand, 
 void blocs__set_pixels(blocs__image* image, uint8_t* data, blocs__rect dst);
 void blocs__generate_atlas(blocs__texture* textures, int len, uint8_t* buffer, blocs__image* atlas_bmp, int expand);
 void blocs__save_json(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names);
+void blocs__save_binary(const char* output, blocs__image* atlas_bmp, blocs__texture* textures, int len, const char** names);
+void blocs__write_binary(FILE* file, int16_t value);
 
 ////////////////////////////////////
 //
