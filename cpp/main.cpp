@@ -28,17 +28,18 @@ blocs__atlas v0.x.y
 ===================
 
 usage:
-    pack [INPUT] -o [OUTPUT] [OPTIONS...] 
+    pack -i [INPUT] -o [OUTPUT] [OPTIONS...] 
 
 example:
-    pack ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -v
+    pack -i ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -u -v
 
 demo:
     pack --demo -s 960 -b 4
 
 options:
-    -o  --output            sets output file name and destination
-    -v  --verbose           print packer state to the console
+    -i  --input             sets input directory
+    -o  --output            sets output file name and directory
+    -v  --verbose           print atlas state to the console
     -u  --unique            remove duplicates from the atlas (TODO...)
     -e  --expand            repeat pixels along image edges
     -b  --border            empty border space between images
@@ -457,64 +458,61 @@ namespace
 
 int main(int argc, const char *argv[])
 {
-    std::ios_base::sync_with_stdio(false);
-
-    log_assert(argc > 2, "expected \"pack [INPUT] [OPTS...]\"");
-
     // Set default output dir to "atlas.png" in relative path
+    input_dir = "./";
     output_dir = "";
     output_name = "atlas";
     // Set default size to 4k
     atlas_size = 4096;
 
     // Parse command line arguments
+    for (int i = 1; i < argc; ++i)
     {
-        input_dir = argv[1];
+        std::string arg = argv[i];
 
-        // If first arg is demo, set demo defaults
-        if (input_dir == "-d" || input_dir == "--demo")
+        if (arg == "-i" || arg == "--input")
+        {
+            i++;
+            log_assert(i < argc, "went out of bounds looking for input argument value");
+            input_dir = argv[i];
+        }
+        else if (arg == "-o" || arg == "--output")
+        {
+            i++;
+            log_assert(i < argc, "went out of bounds looking for output argument value");
+            output_dir = file_path(argv[i]);
+            output_name = file_name(argv[i]);
+        }
+        else if (arg == "-d" || arg == "--demo")
         {
             is_demo = true; 
             output_name = "demo";
             atlas_size = 960;
         }
-
-        for (int i = 2; i < argc; ++i)
+        else if (arg == "-s" || arg == "--size")
         {
-            std::string arg = argv[i];
-
-            if (arg == "-o" || arg == "--output")
-            {
-                i++;
-                log_assert(i < argc, "went out of bounds looking for output argument value");
-                output_dir = file_path(argv[i]);
-                output_name = file_name(argv[i]);
-            }
-            else if (arg == "-s" || arg == "--size")
-            {
-                i++;
-                log_assert(i < argc, "went out of bounds looking for size argument value");
-                atlas_size = std::stoi(argv[i]);
-            }
-            else if (arg == "-v" || arg == "--verbose")
-                log_verbose = true;
-            else if (arg == "-u" || arg == "--unique")
-                atlas_unique = true;
-            else if (arg == "-e" || arg == "--expand")
-            {
-                i++;
-                log_assert(i < argc, "went out of bounds looking for expand argument value");
-                atlas_expand = std::stoi(argv[i]);
-            }
-            else if (arg == "-b" || arg == "--border")
-            {
-                i++;
-                log_assert(i < argc, "went out of bounds looking for border argument value");
-                atlas_border = std::stoi(argv[i]);
-            }
-            else
-                log_assert(0, "unrecognized arg \"%s\"", arg.c_str());
+            i++;
+            log_assert(i < argc, "went out of bounds looking for size argument value");
+            atlas_size = std::stoi(argv[i]);
         }
+        else if (arg == "-v" || arg == "--verbose")
+            log_verbose = true;
+        else if (arg == "-u" || arg == "--unique")
+            atlas_unique = true;
+        else if (arg == "-e" || arg == "--expand")
+        {
+            i++;
+            log_assert(i < argc, "went out of bounds looking for expand argument value");
+            atlas_expand = std::stoi(argv[i]);
+        }
+        else if (arg == "-b" || arg == "--border")
+        {
+            i++;
+            log_assert(i < argc, "went out of bounds looking for border argument value");
+            atlas_border = std::stoi(argv[i]);
+        }
+        else
+            log_assert(0, "unrecognized arg \"%s\"", arg.c_str());
     }
 
     // Set start time for logging

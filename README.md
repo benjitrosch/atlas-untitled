@@ -3,12 +3,12 @@ blocs__atlas v0.x.y
 
 usage:
 ```
-    pack [INPUT] -o [OUTPUT] [OPTIONS...] 
+    pack -i [INPUT] -o [OUTPUT] [OPTIONS...] 
 ```
 
 example:
 ```
-    pack ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -v
+    pack -i ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -u -v
 ```
 
 demo:

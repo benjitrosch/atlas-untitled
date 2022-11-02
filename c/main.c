@@ -28,17 +28,18 @@ blocs__atlas v0.x.y
 ===================
 
 usage:
-    pack [INPUT] -o [OUTPUT] [OPTIONS...] 
+    pack -i [INPUT] -o [OUTPUT] [OPTIONS...] 
 
 example:
-    pack ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -v
+    pack -i ~/assets/sprites/ -o ~assets/atlas.png -s 256 -e 2 -u -v
 
 demo:
     pack --demo -s 960 -b 4
 
 options:
-    -o  --output            sets output file name and destination
-    -v  --verbose           print packer state to the console
+    -i  --input             sets input directory
+    -o  --output            sets output file name and directory
+    -v  --verbose           print atlas state to the console
     -u  --unique            remove duplicates from the atlas (TODO...)
     -e  --expand            repeat pixels along image edges
     -b  --border            empty border space between images
@@ -734,61 +735,60 @@ blocs__texture* textures;
 
 int main(int argc, const char *argv[])
 {
-    blocs__assert(argc > 2, "expected \"pack [INPUT] [OPTS...]\"");
-
     // Set default output dir to "atlas.png" in relative path
+    input_dir = "./";
     output_dir = ".";
     output_name = "atlas";
     // Set default size to 4k
     atlas_size = 4096;
 
     // Parse command line arguments
+    for (int i = 1; i < argc; ++i)
     {
-        input_dir = argv[1];
-
-        // If first arg is demo, set demo defaults
-        if (strcmp(input_dir, "-d") == 0 || strcmp(input_dir, "--demo") == 0)
+        const char* arg = argv[i];
+        if (strcmp(arg, "-i") == 0 || strcmp(arg, "--input") == 0)
+        {
+            i++;
+            blocs__assert(i < argc, "went out of bounds looking for input argument value");
+            input_dir = argv[i];
+        }
+        else if (strcmp(arg, "-o") == 0 || strcmp(arg, "--output") == 0)
+        {
+            i++;
+            blocs__assert(i < argc, "went out of bounds looking for output argument value");
+            output_dir = blocs__file_path(argv[i]);
+            output_name = blocs__file_name(argv[i]);
+        }
+        else if (strcmp(input_dir, "-d") == 0 || strcmp(input_dir, "--demo") == 0)
         {
             demo = 1;
             output_name = "demo";
             atlas_size = 960;
         }
-
-        for (int i = 2; i < argc; ++i)
+        else if (strcmp(arg, "-s") == 0 || strcmp(arg, "--size") == 0)
         {
-            const char* arg = argv[i];
-            if (strcmp(arg, "-o") == 0 || strcmp(arg, "--output") == 0)
-            {
-                i++;
-                blocs__assert(i < argc, "went out of bounds looking for output argument value");
-                output_dir = blocs__file_path(argv[i]);
-                output_name = blocs__file_name(argv[i]);
-            }
-            else if (strcmp(arg, "-s") == 0 || strcmp(arg, "--size") == 0)
-            {
-                i++;
-                blocs__assert(i < argc, "went out of bounds looking for size argument value");
-                atlas_size = atoi(argv[i]);
-            }
-            else if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0)
-                log_verbose = 1;
-            else if (strcmp(arg, "-u") == 0 || strcmp(arg, "--unique") == 0)
-                atlas_unique = 1;
-            else if (strcmp(arg, "-e") == 0 || strcmp(arg, "--expand") == 0)
-            {
-                i++;
-                blocs__assert(i < argc, "went out of bounds looking for expand argument value");
-                atlas_expand = atoi(argv[i]);
-            }
-            else if (strcmp(arg, "-b") == 0 || strcmp(arg, "--border") == 0)
-            {
-                i++;
-                blocs__assert(i < argc, "went out of bounds looking for border argument value");
-                atlas_border = atoi(argv[i]);
-            }
-            else
-                blocs__assert(0, "unrecognized arg \"%s\"", arg);
+            i++;
+            blocs__assert(i < argc, "went out of bounds looking for size argument value");
+            atlas_size = atoi(argv[i]);
         }
+        else if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0)
+            log_verbose = 1;
+        else if (strcmp(arg, "-u") == 0 || strcmp(arg, "--unique") == 0)
+            atlas_unique = 1;
+        else if (strcmp(arg, "-e") == 0 || strcmp(arg, "--expand") == 0)
+        {
+            i++;
+            blocs__assert(i < argc, "went out of bounds looking for expand argument value");
+            atlas_expand = atoi(argv[i]);
+        }
+        else if (strcmp(arg, "-b") == 0 || strcmp(arg, "--border") == 0)
+        {
+            i++;
+            blocs__assert(i < argc, "went out of bounds looking for border argument value");
+            atlas_border = atoi(argv[i]);
+        }
+        else
+            blocs__assert(0, "unrecognized arg \"%s\"", arg);
     }
 
     // Set start time for logging
