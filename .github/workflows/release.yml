@@ -1,0 +1,26 @@
+name: Project build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: "Build (${{ matrix.platform.name }})"
+    runs-on: ${{ matrix.platform.os }}
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: "Windows, Clang-cl", os: windows-latest }
+          - { name: "macOS", os: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build project
+        run: |
+          clang -o pack cpp/main.cpp -std=c++17 -lstdc++
